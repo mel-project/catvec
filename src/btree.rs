@@ -11,18 +11,42 @@ pub enum Tree<T: Clone, const ORD: usize> {
     Array(ArrayVec<T, ORD>),
 }
 
-impl<T: Clone + Debug, const ORD: usize> Tree<T, ORD> {
-    fn eprint_graphviz(self: &Arc<Self>) -> u64 {
+// impl<T: Clone + Debug, const ORD: usize> Tree<T, ORD> {
+//     pub fn eprint_graphviz(self: &Arc<Self>) -> u64 {
+//         // let my_id = Arc::as_ptr(self) as u64;
+//         let my_id = fastrand::u64(0..u64::MAX);
+//         match self.as_ref() {
+//             Tree::Array(vals) => {
+//                 eprintln!(
+//                     "{} [label = \"[{}, {:?}]\"  shape=box];",
+//                     my_id,
+//                     vals.len(),
+//                     vals
+//                 );
+//             }
+//             Tree::Internal(int) => {
+//                 for child in int.children.iter() {
+//                     let child_id = child.eprint_graphviz();
+//                     eprintln!("{} -> {};", my_id, child_id);
+//                 }
+//                 if int.root {
+//                     eprintln!("{} [label = \"ROOT[{}]\" shape=box];", my_id, int.length);
+//                 } else {
+//                     eprintln!("{} [label = \"[{}]\"  shape=box];", my_id, int.length);
+//                 }
+//             }
+//         }
+//         my_id
+//     }
+// }
+
+impl<T: Clone, const ORD: usize> Tree<T, ORD> {
+    pub fn eprint_graphviz(self: &Arc<Self>) -> u64 {
         // let my_id = Arc::as_ptr(self) as u64;
         let my_id = fastrand::u64(0..u64::MAX);
         match self.as_ref() {
             Tree::Array(vals) => {
-                eprintln!(
-                    "{} [label = \"[{}, {:?}]\"  shape=box];",
-                    my_id,
-                    vals.len(),
-                    vals
-                );
+                eprintln!("{} [label = \"[{}, LEAF]\"  shape=box];", my_id, vals.len(),);
             }
             Tree::Internal(int) => {
                 for child in int.children.iter() {
@@ -38,9 +62,6 @@ impl<T: Clone + Debug, const ORD: usize> Tree<T, ORD> {
         }
         my_id
     }
-}
-
-impl<T: Clone, const ORD: usize> Tree<T, ORD> {
     pub fn new() -> Self {
         Tree::Internal(Internal {
             length: 0,
@@ -173,6 +194,8 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                     }
                 }
             }
+            self.fixup(true);
+            self.fixup(false);
         } else {
             // hard case: heights are NOT the same. We pad the tree with useless levels until the heights are the same.
             if self_height > other_height {
@@ -186,8 +209,6 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
             }
             self.concat(other);
         }
-        self.fixup(true);
-        self.fixup(false);
     }
 
     fn pad_once(&mut self) {
@@ -228,12 +249,33 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         }
     }
 
+    /// Checks invariants.
+    pub fn check_invariants(&self) {
+        if let Some(children) = self.children() {
+            for child in children {
+                child.check_invariants();
+            }
+            assert_eq!(children.len(), self.children_count());
+            assert_eq!(self.len(), children.iter().map(|c| c.len()).sum());
+        }
+        let is_root = if let Tree::Internal(int) = self {
+            int.root
+        } else {
+            true
+        };
+        // if !is_root {
+        //     assert!(self.children_count() >= ORD / 2)
+        // }
+    }
+
     /// Fixes stuff
     ///
     /// TODO: fix log^2(n) runtime
     fn fixup(&mut self, is_right: bool) {
+        self.check_invariants();
         log::trace!("fixup(is_right = {})", is_right);
         for depth in (0..self.height()).rev() {
+            Arc::new(self.clone()).eprint_graphviz();
             log::trace!("at depth {}", depth);
             let this = self.unwrap_internal();
             let mut stack = Vec::new();
@@ -268,9 +310,15 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                 }
             }
             log::trace!("stack has {} elements", stack.len());
+            if stack.is_empty() {
+                return;
+            }
             // At this point, the stack begins from the last level of the fringe.
             let (fringe_tip, h) = stack.pop().unwrap();
-            assert_eq!(h, depth);
+            assert!(h <= depth);
+            if h < depth {
+                break;
+            }
             let fringe_tip = Arc::make_mut(fringe_tip);
             // We attempt to pop a neighbor at the same level
             let neighbor = loop {
@@ -310,15 +358,25 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
     fn fixup_inner(&mut self, neighbor: Option<&mut Self>, is_right: bool) -> bool {
         // We remove any empty children. These are from previous runs.
         if let Tree::Internal(fringe) = self {
-            fringe.children.retain(|c| c.len() > 0)
+            fringe.children.retain(|c| c.len() > 0);
+            fringe.length = fringe.children.iter().map(|c| c.len()).sum();
         }
+
         // go through the different cases now!
         // case 1: no neighbor. This means that this node should be the root!
         match neighbor {
-            None => true,
+            None => {
+                log::trace!("case 1 hit");
+                true
+            }
             Some(neighbor) => {
+                if let Tree::Internal(neighbor) = neighbor {
+                    neighbor.children.retain(|c| c.len() > 0);
+                    neighbor.length = neighbor.children.iter().map(|c| c.len()).sum();
+                }
                 // case 2: F doesn't actually violate invariants
                 if self.children_count() >= ORD / 2 {
+                    log::trace!("case 2 hit");
                     return false;
                 }
                 // case 3: F violates the invariants by having too little children.
@@ -340,6 +398,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
 
     /// Push children to the other node.
     fn give_all_children_to(&mut self, other: &mut Self, is_right: bool) {
+        log::trace!("giving all children");
         match other {
             Tree::Array(other) => {
                 let this = self.unwrap_arr();
@@ -372,6 +431,14 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         }
     }
 
+    /// List of all children
+    fn children(&self) -> Option<&ArrayVec<Arc<Self>, ORD>> {
+        match self {
+            Tree::Array(_) => None,
+            Tree::Internal(int) => Some(&int.children),
+        }
+    }
+
     /// Steal children from the other node until we satisfy the invariant.
     fn steal_children_from(&mut self, other: &mut Self, is_right: bool) {
         match other {
@@ -382,8 +449,13 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                         this.insert(0, other.pop().expect("other children ran out"))
                     }
                 } else {
+                    log::trace!("{} STEALING {}", this.len(), other.len());
+                    let before = this.len() + other.len();
                     let to_move = ORD / 2 - this.len();
                     this.extend(other.drain(0..to_move));
+                    let after = this.len() + other.len();
+                    log::trace!("{} BALANCED {}", this.len(), other.len());
+                    assert_eq!(before, after);
                 }
             }
             Tree::Internal(other) => {
@@ -396,12 +468,15 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                         this.children.insert(0, child);
                     }
                 } else {
+                    let before = this.length + other.length;
                     let to_move = ORD / 2 - this.children.len();
                     for child in other.children.drain(0..to_move) {
                         other.length -= child.len();
                         this.length += child.len();
                         this.children.push(child);
                     }
+                    let after = this.length + other.length;
+                    assert_eq!(before, after);
                 }
             }
         }

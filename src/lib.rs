@@ -4,6 +4,7 @@ use std::{
 };
 
 use btree::Tree;
+use tap::Tap;
 
 mod btree;
 
@@ -11,6 +12,27 @@ mod btree;
 #[derive(Clone)]
 pub struct CatVec<T: Clone, const ORD: usize> {
     inner: Tree<T, ORD>,
+}
+
+// impl<T: Clone, const ORD: usize> From<Vec<T>> for CatVec<T, ORD> {
+//     fn from(v: Vec<T>) -> Self {
+//         v.into_iter()
+//             .fold(CatVec::new(), |a, b| a.tap_mut(|a| a.push_back(b)))
+//     }
+// }
+
+impl<T: Clone, V: AsRef<[T]>, const ORD: usize> From<V> for CatVec<T, ORD> {
+    fn from(v: V) -> Self {
+        v.as_ref()
+            .iter()
+            .fold(CatVec::new(), |a, b| a.tap_mut(|a| a.push_back(b.clone())))
+    }
+}
+impl<T: Clone + std::fmt::Debug, const ORD: usize> CatVec<T, ORD> {
+    /// Debug graphviz.
+    pub fn debug_graphviz(&self) {
+        Arc::new(self.inner.clone()).eprint_graphviz();
+    }
 }
 
 impl<T: Clone, const ORD: usize> CatVec<T, ORD> {
@@ -57,6 +79,22 @@ impl<T: Clone, const ORD: usize> CatVec<T, ORD> {
     /// Inserts the given element at the given position, shifting all elements after that rightwards.
     pub fn insert(&mut self, idx: usize, val: T) {
         self.inner.insert(idx, val);
+    }
+
+    /// Pushes to the back of the vector.
+    pub fn push_back(&mut self, val: T) {
+        let len = self.len();
+        self.insert(len, val)
+    }
+
+    /// Length of vector.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Check invariant.
+    pub fn check_invariants(&self) {
+        self.inner.check_invariants();
     }
 }
 
