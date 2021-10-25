@@ -11,7 +11,7 @@ mod btree;
 /// A persistent, efficiently concatenable and sliceable vector. The const-generic type parameter ORD is the maximum fanout factor; a value from 32 to 128 usually works well.
 #[derive(Clone)]
 pub struct CatVec<T: Clone, const ORD: usize> {
-    inner: Tree<T, ORD>,
+    inner: Box<Tree<T, ORD>>,
 }
 
 // impl<T: Clone, const ORD: usize> From<Vec<T>> for CatVec<T, ORD> {
@@ -49,14 +49,16 @@ impl<T: Clone + std::fmt::Debug, const ORD: usize> std::fmt::Debug for CatVec<T,
 impl<T: Clone + std::fmt::Debug, const ORD: usize> CatVec<T, ORD> {
     /// Debug graphviz.
     pub fn debug_graphviz(&self) {
-        Arc::new(self.inner.clone()).eprint_graphviz();
+        Arc::new(*self.inner.clone()).eprint_graphviz();
     }
 }
 
 impl<T: Clone, const ORD: usize> CatVec<T, ORD> {
     /// Creates a new empty CatVec.
     pub fn new() -> Self {
-        Self { inner: Tree::new() }
+        Self {
+            inner: Tree::new().into(),
+        }
     }
 
     /// Gets a reference to the element at a particular position.
@@ -91,7 +93,7 @@ impl<T: Clone, const ORD: usize> CatVec<T, ORD> {
 
     /// Concatenates this vector with another one. Consumes the other vector.
     pub fn append(&mut self, other: Self) {
-        self.inner.concat(other.inner)
+        self.inner.concat(*other.inner)
     }
 
     /// Inserts the given element at the given position, shifting all elements after that rightwards.
