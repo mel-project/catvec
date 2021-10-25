@@ -28,6 +28,17 @@ impl<T: Clone, V: AsRef<[T]>, const ORD: usize> From<V> for CatVec<T, ORD> {
             .fold(CatVec::new(), |a, b| a.tap_mut(|a| a.push_back(b.clone())))
     }
 }
+
+impl<T: Clone, const ORD: usize> From<CatVec<T, ORD>> for Vec<T> {
+    fn from(cv: CatVec<T, ORD>) -> Self {
+        let mut result = Vec::with_capacity(cv.len());
+        for i in 0..cv.len() {
+            result.push(cv.get(i).unwrap().clone());
+        }
+        result
+    }
+}
+
 impl<T: Clone + std::fmt::Debug, const ORD: usize> CatVec<T, ORD> {
     /// Debug graphviz.
     pub fn debug_graphviz(&self) {

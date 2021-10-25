@@ -16,10 +16,11 @@ fn main() {
 enum Op {
     Literal(Vec<u8>),
     Append,
+    Insert(usize, u8),
 }
 
-fn eval(ops: &[Op]) -> Option<CatVec<u8, 8>> {
-    let mut stack: Vec<CatVec<u8, 8>> = Vec::new();
+fn eval(ops: &[Op]) -> Option<CatVec<u8, 5>> {
+    let mut stack: Vec<CatVec<u8, 5>> = Vec::new();
     let mut shadow = Vec::new();
     for op in ops {
         match op {
@@ -31,7 +32,9 @@ fn eval(ops: &[Op]) -> Option<CatVec<u8, 8>> {
                 let mut x = stack.pop()?;
                 let y = stack.pop()?;
                 let mut sx = shadow.pop()?;
+                assert_eq!(sx, Vec::from(x.clone()));
                 let mut sy = shadow.pop()?;
+                assert_eq!(sy, Vec::from(y.clone()));
                 eprintln!(
                     "popped {} {:?} and {} {:?} of shadow",
                     sx.len(),
@@ -44,6 +47,20 @@ fn eval(ops: &[Op]) -> Option<CatVec<u8, 8>> {
                 x.check_invariants();
                 stack.push(x);
                 sx.append(&mut sy);
+                shadow.push(sx);
+            }
+            Op::Insert(i, v) => {
+                let mut x = stack.pop()?;
+                let mut sx = shadow.pop()?;
+                let i = *i % (x.len() + 1);
+                eprintln!("insert {} to {:?} pos {}", v, sx, i);
+                x.debug_graphviz();
+                x.insert(i, *v);
+                sx.insert(i, *v);
+                eprintln!("------------");
+                x.debug_graphviz();
+                assert_eq!(sx, Vec::from(x.clone()));
+                stack.push(x);
                 shadow.push(sx);
             }
         }

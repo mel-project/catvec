@@ -97,7 +97,10 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
 
     pub fn insert(&mut self, key: usize, value: T) -> Option<Self> {
         match self {
-            Tree::Internal(internal) => internal.insert(key, value),
+            Tree::Internal(internal) => {
+                log::trace!("internal insert at key {}", key);
+                internal.insert(key, value)
+            }
             Tree::Array(values) => {
                 if !values.is_full() {
                     values.insert(key, value);
@@ -117,6 +120,12 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
     }
 
     pub fn concat(&mut self, mut other: Self) {
+        if self.len() == 0 {
+            *self = other;
+            return;
+        } else if other.len() == 0 {
+            return;
+        }
         // first make the two heights the same
         let self_height = self.height();
         let other_height = other.height();
@@ -263,16 +272,15 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         } else {
             true
         };
-        // if !is_root {
-        //     assert!(self.children_count() >= ORD / 2)
-        // }
+        if !is_root {
+            assert!(self.children_count() >= ORD / 2)
+        }
     }
 
     /// Fixes stuff
     ///
     /// TODO: fix log^2(n) runtime
     fn fixup(&mut self, is_right: bool) {
-        self.check_invariants();
         log::trace!("fixup(is_right = {})", is_right);
         for depth in (0..self.height()).rev() {
             Arc::new(self.clone()).eprint_graphviz();
@@ -359,7 +367,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         // We remove any empty children. These are from previous runs.
         if let Tree::Internal(fringe) = self {
             fringe.children.retain(|c| c.len() > 0);
-            fringe.length = fringe.children.iter().map(|c| c.len()).sum();
+            fringe.length = fringe.children.iter().map(|c| dbg!(c.len())).sum();
         }
 
         // go through the different cases now!
@@ -367,7 +375,12 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         match neighbor {
             None => {
                 log::trace!("case 1 hit");
-                true
+                if let Tree::Internal(int) = self {
+                    int.root = true;
+                    true
+                } else {
+                    false
+                }
             }
             Some(neighbor) => {
                 if let Tree::Internal(neighbor) = neighbor {
@@ -375,7 +388,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                     neighbor.length = neighbor.children.iter().map(|c| c.len()).sum();
                 }
                 // case 2: F doesn't actually violate invariants
-                if self.children_count() >= ORD / 2 {
+                if dbg!(self.children_count()) >= ORD / 2 {
                     log::trace!("case 2 hit");
                     return false;
                 }
@@ -569,6 +582,7 @@ impl<T: Clone, const ORD: usize> Internal<T, ORD> {
 
     fn insert(&mut self, key: usize, value: T) -> Option<Tree<T, ORD>> {
         if !self.children.is_full() {
+            log::trace!("non-full case");
             // we have room to stuff some more, this is the easy case
             let (idx, offset) = self.key_to_idx_and_offset(key);
             let correct_child = Arc::make_mut(&mut self.children[idx]);
@@ -577,11 +591,13 @@ impl<T: Clone, const ORD: usize> Internal<T, ORD> {
             // if the other side is Some, this means that we need to insert an extra child.
             if let Some(other) = other {
                 self.children.insert(idx + 1, Arc::new(other));
+                log::trace!("non-full case, but adding another child")
             }
             self.length += 1;
             // no need to twiddle with our parents at all
             None
         } else if self.root {
+            log::trace!("full root, adding another level");
             // just make another level, stupid
             let mut self_copy = self.clone();
             self_copy.root = false;
@@ -589,6 +605,7 @@ impl<T: Clone, const ORD: usize> Internal<T, ORD> {
             self.children.push(Arc::new(Tree::Internal(self_copy)));
             self.insert(key, value)
         } else {
+            log::trace!("complicated case");
             // the more complicated case. we split off like half of the nodes
             let split_point = self.children.len() / 2;
             let other_children: ArrayVec<_, ORD> = self.children.drain(split_point..).collect();
