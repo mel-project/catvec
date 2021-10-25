@@ -242,7 +242,12 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
 
     pub fn drop_head(&mut self, key: usize) {
         match self {
-            Tree::Internal(internal) => internal.drop_head(key),
+            Tree::Internal(internal) => {
+                internal.drop_head(key);
+                if internal.root {
+                    self.fixup(false)
+                }
+            }
             Tree::Array(arr) => {
                 arr.drain(0..key);
             }
@@ -251,7 +256,12 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
 
     pub fn take_head(&mut self, key: usize) {
         match self {
-            Tree::Internal(internal) => internal.take_head(key),
+            Tree::Internal(internal) => {
+                internal.take_head(key);
+                if internal.root {
+                    self.fixup(true)
+                }
+            }
             Tree::Array(arr) => {
                 arr.drain(key..);
             }
@@ -319,7 +329,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
             }
             log::trace!("stack has {} elements", stack.len());
             if stack.is_empty() {
-                return;
+                break;
             }
             // At this point, the stack begins from the last level of the fringe.
             let (fringe_tip, h) = stack.pop().unwrap();
@@ -356,9 +366,10 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
             let at_new_root = fringe_tip.fixup_inner(neighbor, is_right);
             if at_new_root {
                 *self = fringe_tip.clone();
-                return;
+                break;
             }
         }
+        log::trace!("final fixup!");
         self.fixup_inner(None, is_right);
     }
 
@@ -367,7 +378,10 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         // We remove any empty children. These are from previous runs.
         if let Tree::Internal(fringe) = self {
             fringe.children.retain(|c| c.len() > 0);
-            fringe.length = fringe.children.iter().map(|c| dbg!(c.len())).sum();
+            fringe.length = fringe.children.iter().map(|c| (c.len())).sum();
+            if fringe.root && fringe.children.is_empty() {
+                fringe.children.push(Arc::new(Tree::Array(ArrayVec::new())))
+            }
         }
 
         // go through the different cases now!
@@ -388,7 +402,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                     neighbor.length = neighbor.children.iter().map(|c| c.len()).sum();
                 }
                 // case 2: F doesn't actually violate invariants
-                if dbg!(self.children_count()) >= ORD / 2 {
+                if self.children_count() >= ORD / 2 {
                     log::trace!("case 2 hit");
                     return false;
                 }
@@ -639,29 +653,28 @@ impl<T: Clone, const ORD: usize> Internal<T, ORD> {
     }
 
     fn drop_head(&mut self, key: usize) {
-        assert!(key < self.length);
+        if key == 0 {
+            return;
+        }
+        assert!(key <= self.length);
         self.length -= key;
         let (idx, offset) = self.key_to_idx_and_offset(key);
         self.children.drain(0..idx);
         if !self.children.is_empty() {
             Arc::make_mut(&mut self.children[0]).drop_head(key - offset);
         }
-        // if self.root {
-        //     self.fixup(false)
-        // }
     }
 
     fn take_head(&mut self, key: usize) {
-        assert!(key < self.length);
-        self.length = key;
+        assert!(key <= self.length);
+        if key == self.length {
+            return;
+        }
         let (idx, offset) = self.key_to_idx_and_offset(key);
         self.children.drain(idx + 1..);
         if let Some(last) = self.children.last_mut() {
             Arc::make_mut(last).take_head(key - offset);
         }
-        // if self.root {
-        //     self.fixup(true)
-        // }
     }
 
     fn height(&self) -> usize {

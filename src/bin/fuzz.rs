@@ -17,6 +17,7 @@ enum Op {
     Literal(Vec<u8>),
     Append,
     Insert(usize, u8),
+    Slice(usize, usize),
 }
 
 fn eval(ops: &[Op]) -> Option<CatVec<u8, 5>> {
@@ -60,6 +61,18 @@ fn eval(ops: &[Op]) -> Option<CatVec<u8, 5>> {
                 eprintln!("------------");
                 x.debug_graphviz();
                 assert_eq!(sx, Vec::from(x.clone()));
+                stack.push(x);
+                shadow.push(sx);
+            }
+            Op::Slice(i, j) => {
+                let mut x = stack.pop()?;
+                let mut sx = shadow.pop()?;
+                let i = *i % (x.len() + 1);
+                let j = (*j % (x.len() + 1)).max(i);
+                dbg!(i, j, x.len());
+                x.slice_into(i..j);
+                x.check_invariants();
+                sx = sx[i..j].to_vec();
                 stack.push(x);
                 shadow.push(sx);
             }
