@@ -39,6 +39,13 @@ impl<T: Clone, const ORD: usize> From<CatVec<T, ORD>> for Vec<T> {
     }
 }
 
+impl<T: Clone + std::fmt::Debug, const ORD: usize> std::fmt::Debug for CatVec<T, ORD> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let v: Vec<_> = self.clone().into();
+        std::fmt::Debug::fmt(&v, f)
+    }
+}
+
 impl<T: Clone + std::fmt::Debug, const ORD: usize> CatVec<T, ORD> {
     /// Debug graphviz.
     pub fn debug_graphviz(&self) {
