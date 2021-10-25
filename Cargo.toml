@@ -2,6 +2,10 @@
 name = "catvec"
 version = "0.1.0"
 edition = "2018"
+authors = ["nullchinchilla <nullchinchilla@pm.me>", "Themelio Labs"]
+description="Persistent, catenable vectors"
+license = "ISC"
+repository="https://github.com/themeliolabs/catvec"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,7 +15,7 @@ defmac = "0.2.1"
 fastrand = "1.5.0"
 log = "0.4.14"
 tap = "1.0.1"
-arbitrary={version="1", features=["derive"]} 
+arbitrary={version="1", features=["derive"]}
 
 [target.'cfg(fuzzing)'.dependencies] 
 honggfuzz= "0.5.54"
