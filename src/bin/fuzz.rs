@@ -20,8 +20,8 @@ enum Op {
     Slice(usize, usize),
 }
 
-fn eval(ops: &[Op]) -> Option<CatVec<u8, 5>> {
-    let mut stack: Vec<CatVec<u8, 5>> = Vec::new();
+fn eval(ops: &[Op]) -> Option<CatVec<u8, 4>> {
+    let mut stack: Vec<CatVec<u8, 4>> = Vec::new();
     let mut shadow = Vec::new();
     for op in ops {
         match op {
