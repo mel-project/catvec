@@ -275,7 +275,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
                 child.check_invariants();
             }
             assert_eq!(children.len(), self.children_count());
-            assert_eq!(self.len(), children.iter().map(|c| c.len()).sum());
+            assert_eq!(self.len(), children.iter().map(|c| c.len()).sum::<usize>());
         }
         let is_root = if let Tree::Internal(int) = self {
             int.root
