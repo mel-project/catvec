@@ -1,6 +1,6 @@
 [package]
 name = "catvec"
-version = "0.1.3-alpha.0"
+version = "0.1.3"
 edition = "2018"
 authors = ["nullchinchilla <nullchinchilla@pm.me>", "Themelio Labs"]
 description="Persistent, catenable vectors"
