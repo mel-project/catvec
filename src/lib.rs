@@ -14,12 +14,30 @@ pub struct CatVec<T: Clone, const ORD: usize> {
     inner: Box<Tree<T, ORD>>,
 }
 
-// impl<T: Clone, const ORD: usize> From<Vec<T>> for CatVec<T, ORD> {
-//     fn from(v: Vec<T>) -> Self {
-//         v.into_iter()
-//             .fold(CatVec::new(), |a, b| a.tap_mut(|a| a.push_back(b)))
-//     }
-// }
+impl<T: Clone + PartialEq, const ORD: usize> PartialEq<CatVec<T, ORD>> for CatVec<T, ORD> {
+    fn eq(&self, other: &Self) -> bool {
+        let first_length: usize = self.len();
+        let second_length: usize = other.len();
+
+        let do_lengths_match: bool = first_length == second_length;
+
+        if do_lengths_match {
+            let do_all_indexes_match: bool = (0..first_length).all(|index| {
+                let first_index: Option<&T> = self.get(index);
+                let second_index: Option<&T> = other.get(index);
+
+                first_index.expect("Failed to unrwap first index") == second_index.expect("Failed to unrwap second index")
+            });
+
+            do_all_indexes_match
+        } else {
+            do_lengths_match
+        }
+    }
+}
+
+impl<T: Clone + Eq, const ORD: usize> Eq for CatVec<T, ORD> {}
+
 
 impl<T: Clone, V: AsRef<[T]>, const ORD: usize> From<V> for CatVec<T, ORD> {
     fn from(v: V) -> Self {

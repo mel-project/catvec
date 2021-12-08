@@ -62,6 +62,7 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
         }
         my_id
     }
+
     pub fn new() -> Self {
         Tree::Internal(Internal {
             length: 0,
@@ -693,15 +694,26 @@ impl<T: Clone, const ORD: usize> Internal<T, ORD> {
 
 #[cfg(test)]
 mod tests {
-    use log::LevelFilter;
+    use crate::Tree;
 
-    use super::*;
+    use std::sync::Arc;
+
+    use log::LevelFilter;
 
     fn init_logs() {
         let _ = env_logger::builder()
             .is_test(true)
             .filter_level(LevelFilter::Trace)
             .try_init();
+    }
+
+    fn testvec(n: usize) -> Tree<usize, 5> {
+        let mut tree = Tree::new();
+        for i in 0..n {
+            let idx = tree.len();
+            tree.insert(idx, i);
+        }
+        tree
     }
 
     #[test]
@@ -724,14 +736,5 @@ mod tests {
         let mut tree: Tree<usize, 5> = testvec(125);
         tree.concat(testvec(1));
         Arc::new(tree).eprint_graphviz();
-    }
-
-    fn testvec(n: usize) -> Tree<usize, 5> {
-        let mut tree = Tree::new();
-        for i in 0..n {
-            let idx = tree.len();
-            tree.insert(idx, i);
-        }
-        tree
     }
 }
