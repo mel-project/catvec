@@ -1,7 +1,6 @@
-use std::{collections::VecDeque, fmt::Debug, sync::Arc, thread::current};
+use std::sync::Arc;
 
 use arrayvec::ArrayVec;
-use tap::Pipe;
 
 /// An implementation of a relative-indexed, immutable B+tree, const-generic over the fanout degree ORD.
 /// https://github.com/jafingerhut/core.btree-vector/blob/master/doc/intro.md
@@ -294,7 +293,6 @@ impl<T: Clone, const ORD: usize> Tree<T, ORD> {
     fn fixup(&mut self, is_right: bool) {
         log::trace!("fixup(is_right = {})", is_right);
         for depth in (0..self.height()).rev() {
-            Arc::new(self.clone()).eprint_graphviz();
             log::trace!("at depth {}", depth);
             let this = self.unwrap_internal();
             let mut stack = Vec::new();
